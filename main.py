@@ -12,6 +12,39 @@ def export_to_systeme(request):
         "X-API-Key": "sboewffphhrkvjl6lhgox5wammi7fmdpqh67h2oifo5d0s7c9k61p9s704i3cyfg"
     }
 
+    # Obtener el ID de la etiqueta "Formulario nativo meta"
+    tag_name = "Formulario nativo meta"
+    tags_url = "https://api.systeme.io/api/tags"
+    tags_response = requests.get(tags_url, headers=headers)
+
+    # Mostrar la respuesta para analizar la estructura
+    print("Respuesta de la API de etiquetas:")
+    print(tags_response.text)
+
+    # Intenta convertir la respuesta a JSON para procesarla
+    try:
+        tags_data = tags_response.json()
+    except json.JSONDecodeError as e:
+        print(f"Error al decodificar JSON: {e}")
+        return 'Error al obtener etiquetas de Systeme.io', 500
+
+    tag_id = None
+
+    # Ahora accedemos a la lista de etiquetas dentro de 'items'
+    if 'items' in tags_data:
+        for tag in tags_data['items']:  # Iterar sobre la lista de etiquetas
+            if tag.get('name') == tag_name:
+                tag_id = tag.get('id')
+                print(f"ID de la etiqueta '{tag_name}' encontrado: {tag_id}")
+                break
+    else:
+        print(f"Formato inesperado de la respuesta: {tags_data}")
+        return 'Formato inesperado de la respuesta de etiquetas', 500
+
+    if not tag_id:
+        print(f"Error: no se pudo encontrar la etiqueta '{tag_name}' en Systeme.io.")
+        return 'Etiqueta no encontrada', 500
+
     # Conectar a BigQuery con el ID del proyecto
     client = bigquery.Client(project='compact-record-429209-h9')  # Reemplaza con tu ID de proyecto de Google Cloud
     query = """
@@ -46,11 +79,27 @@ def export_to_systeme(request):
                 ]
             }
 
+            # Crear contacto en Systeme.io
             response = requests.post(url, headers=headers, json=data)
             response.raise_for_status()  # Lanza una excepción para códigos de estado 4xx o 5xx
 
             if response.status_code == 201:  # Verificar que se ha creado correctamente
-                print(f"Contacto {row['email']} añadido correctamente a Systeme.io")
+                contact_data = response.json()
+                contact_id = contact_data.get("id")  # Obtener el ID del contacto creado
+                print(f"Contacto {row['email']} añadido correctamente a Systeme.io con ID {contact_id}")
+
+                # Asignar la etiqueta usando el tagId
+                tag_url = f"https://api.systeme.io/api/contacts/{contact_id}/tags"
+                tag_data = {
+                    "tagId": tag_id
+                }
+                tag_response = requests.post(tag_url, headers=headers, json=tag_data)
+
+                # Manejar tanto 200 como 204 como éxito
+                if tag_response.status_code in [200, 204]:
+                    print(f"Etiqueta 'Formulario nativo meta' asignada al contacto {row['email']}.")
+                else:
+                    print(f"Error al asignar la etiqueta: {tag_response.status_code} - {tag_response.text}")
 
                 # Marcar como enviado en BigQuery
                 update_query = f"""
