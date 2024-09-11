@@ -9,7 +9,7 @@ def export_to_systeme(request):
     url = "https://api.systeme.io/api/contacts"
     headers = {
         "accept": "application/json",
-        "X-API-Key": "sboewffphhrkvjl6lhgox5wammi7fmdpqh67h2oifo5d0s7c9k61p9s704i3cyfg"
+        "X-API-Key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     }
 
     # Obtener el ID de la etiqueta "Formulario nativo meta"
